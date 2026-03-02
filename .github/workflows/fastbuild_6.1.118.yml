@@ -650,7 +650,7 @@ jobs:
           git clone https://github.com/cctv18/AnyKernel3 --depth=1
           rm -rf ./AnyKernel3/.git
           cd AnyKernel3
-                    if [[ "${RCU_NORMAL_AFTER_BOOT_ENABLE}" == "1" ]]; then
+          if [[ "${RCU_NORMAL_AFTER_BOOT_ENABLE}" == "1" ]]; then
             echo "Lazy RCU enabled, patching cmdline: rcupdate.rcu_normal_after_boot=1"
             awk '
               /split_boot # for devices with init_boot ramdisk/ {
