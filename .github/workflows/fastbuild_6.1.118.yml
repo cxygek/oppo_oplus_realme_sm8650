@@ -411,6 +411,7 @@ jobs:
 
       - name: 启用lazy rcu & wq power efficient
         run: |
+          cd kernel_workspace
           if [[ "${{ github.event.inputs.lazy_rcu_enable }}" == "true" ]]; then
             echo "CONFIG_RCU_NOCB_CPU=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_RCU_NOCB_CPU_DEFAULT_ALL=y" >> ./common/arch/arm64/configs/gki_defconfig
