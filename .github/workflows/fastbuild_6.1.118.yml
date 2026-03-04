@@ -4,8 +4,11 @@ env:
   TZ: Asia/Shanghai
   ANDROID_VERSION: 'android14'
   KERNEL_VERSION: '6.1'
-  KERNEL_NAME: 'android14-11-o-gca13bffobf09'
+  KERNEL_NAME: 'android14-11-o-g64180ab070e5'
   CCACHE_KEY: ccache-neov4-6.1.118
+  KBUILD_BUILD_USER: "build-user"
+  KBUILD_BUILD_HOST: "build-host"
+  KBUILD_BUILD_TIMESTAMP: "Fri Dec 12 12:32:56 UTC 2025"
 
 on:
   workflow_dispatch:
