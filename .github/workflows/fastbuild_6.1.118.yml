@@ -64,10 +64,15 @@ on:
         type: boolean
         default: 'true'
       wq_power_efficient_enable:
-        description: '是否启用 WQ power efficient'
+        description: '是否启用 WQ Power Efficient'
         required: true
         type: boolean
         default: 'true'  
+      unicode_bypass_fix_enable:
+        description: '是否启用 Unicode Bypass Fix(修复越权访问android/data目录)'
+        required: true
+        type: boolean
+        default: 'true'          
       better_net:
         description: '是否开启网络功能拓展配置(用于为ipset及需要iptables等高级网络功能内核支持的程序提供支持)'
         required: true
@@ -435,7 +440,7 @@ jobs:
           #跳过将uapi标准头安装到 usr/include 目录的不必要操作，节省编译时间
           echo "CONFIG_HEADERS_INSTALL=n" >> ./common/arch/arm64/configs/gki_defconfig
 
-      - name: 启用lazy rcu & wq power efficient
+      - name: 启用 Lazy RCU 配置
         run: |
           cd kernel_workspace
           if [[ "${{ github.event.inputs.lazy_rcu_enable }}" == "true" ]]; then
@@ -447,10 +452,22 @@ jobs:
           else
             echo "RCU_NORMAL_AFTER_BOOT_ENABLE=0" >> $GITHUB_ENV
           fi
+
+      - name: 启用 WQ Power Efficient 配置
+        run: |
+          cd kernel_workspace  
           if [[ "${{ github.event.inputs.wq_power_efficient_enable }}" == "true" ]]; then
             echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> ./common/arch/arm64/configs/gki_defconfig
           fi
-          
+
+      - name: 启用 Unicode Bypass Fix 配置
+        run: |
+          cd kernel_workspace/common
+          if [[ "${{ github.event.inputs.unicode_bypass_fix_enable }}" == "true" ]]; then
+            wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/other_patch/unicode_bypass_fix.patch
+            patch -p1 < unicode_bypass_fix.patch
+          fi
+
       - name: 启用网络功能增强优化配置
         if: inputs.better_net
         run: |
@@ -839,7 +856,8 @@ jobs:
             - 网络功能增强：${{ github.event.inputs.better_net }}
             - BBR/Brutal 等拥塞控制算法支持：${{ github.event.inputs.bbr_enable }}
             - Lazy RCU：${{ github.event.inputs.lazy_rcu_enable }}
-            - WQ power efficient：${{ github.event.inputs.wq_power_efficient_enable }}
+            - WQ Power Efficient：${{ github.event.inputs.wq_power_efficient_enable }}
+            - Unicode Bypass Fix：${{ github.event.inputs.unicode_bypass_fix_enable }}
             - 三星SSG IO调度器支持：${{ github.event.inputs.ssg_enable }}
             - Re-Kernel支持：${{ github.event.inputs.rekernel_enable }}
             - 内核级基带保护支持：${{ github.event.inputs.baseband_guard }}
