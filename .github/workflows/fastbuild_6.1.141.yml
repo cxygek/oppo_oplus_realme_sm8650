@@ -103,6 +103,19 @@ on:
         required: true
         type: boolean
         default: 'false'
+      ntsync_enable:
+        description: "启用 NTsync"
+        type: boolean
+        default: false
+      droidspace_enable:
+        description: "Droidspaces 容器支持 (5.10~6.6: 槽位补丁, 6.12: 开/关)"
+        type: choice
+        options:
+          - "off"
+          - "678"
+          - "123"
+          - "345"
+        default: "off"        
       baseband_guard:
         description: '是否开启内核级基带保护(阻止一切对非用户分区的写入，有效防止格机)'
         required: true
@@ -465,7 +478,6 @@ jobs:
         run: |
           cd kernel_workspace
           if [[ "${{ github.event.inputs.zram_writeback_enable }}" == "true" ]]; then
-            echo "CONFIG_ZRAM=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_ZRAM_WRITEBACK=y" >> ./common/arch/arm64/configs/gki_defconfig
           fi
       
@@ -547,7 +559,7 @@ jobs:
           cd common
           wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/other_patch/config.patch
           patch -p1 -F 3 < config.patch || true
-      
+
       - name: 添加 BBR 等一系列拥塞控制算法
         run: |
           if [[ "${{ github.event.inputs.bbr_enable }}" != "false" ]]; then
@@ -602,6 +614,76 @@ jobs:
           echo "正在启用Re-Kernel支持(用于与Freezer,NoActive等软件配合使用,提升冻结后台能力)…"
           cd kernel_workspace
           echo "CONFIG_REKERNEL=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+      - name: 启用NTsync支持
+        if: inputs.ntsync_enable
+        run: |
+          echo "正在启用NTsync支持…"
+          cd kernel_workspace
+          echo "克隆 NTsync 补丁仓库…"
+          git clone --depth 1 https://github.com/Goldzxcbug/Droidspaces_Kernel_patch.git /tmp/Droidspaces_Kernel_patch
+          echo "NTSYNC_PATCHES=/tmp/Droidspaces_Kernel_patch/NTsync" >> $GITHUB_ENV
+          echo "正在集成 NTsync 支持…"
+          PATCH_FILE1="$NTSYNC_PATCHES/ntsync_base.patch"
+          PATCH_FILE2="$NTSYNC_PATCHES/ntsync_compat_android14-6.1.patch"
+          if ! patch -p1 --forward < "$PATCH_FILE1"; then
+            echo "NTsync base补丁应用失败，可能已应用或上下文不匹配"
+          fi
+          if ! patch -p1 --forward < "$PATCH_FILE2"; then
+            echo "NTsync 兼容补丁应用失败，可能已应用或上下文不匹配"
+          fi
+          echo "添加 NTsync 内核配置..."
+          echo "CONFIG_NTSYNC=y" >> ./arch/arm64/configs/gki_defconfig
+          echo "NTsync 集成完成"
+
+      - name: 启用DroidSpace支持
+        if: inputs.droidspace_enable
+        run: |
+          echo "正在启用DroidSpace支持…"
+          cd kernel_workspace
+          echo "正在下载DroidSpace补丁…"
+          git clone --depth 1 https://github.com/ravindu644/Droidspaces-OSS.git /tmp/Droidspaces-OSS
+          echo "DROIDSPACES_PATCHES=/tmp/Droidspaces-OSS/Documentation/resources/kernel-patches/GKI" >> $GITHUB_ENV
+          echo "正在应用DroidSpace补丁…"
+          # 678 -> 6_7_8, 123 -> 1_2_3, 345 -> 3_4_5
+          SLOT_NAME=$(echo "$SLOT" | sed 's/\(.\)/\1_/g; s/_$//')
+          PATCH_FILE="$DROIDSPACES_PATCHES/below-kernel-6.12/001.GKI-below-6.12-fix_sysvipc_kabi_${SLOT_NAME}.patch"
+          if ! patch -p1 --forward < "$PATCH_FILE"; then
+            echo "::warning::SYSVIPC kABI 补丁应用失败，可能已应用或上下文不匹配"
+          fi
+          echo "添加 Droidspaces 内核配置..."
+          # 按文档规则逐个处理: 已启用则跳过, "# not set" 则替换, 不存在则追加
+          enable_config() {
+            local cfg="$1"
+            if grep -q "^${cfg}=y" "$DEFCONFIG"; then
+              echo "  已启用: $cfg"
+            elif grep -q "^# ${cfg} is not set" "$DEFCONFIG"; then
+              sed -i "s/^# ${cfg} is not set$/${cfg}=y/" "$DEFCONFIG"
+              echo "  已切换: $cfg"
+            else
+              echo "${cfg}=y" >> "$DEFCONFIG"
+              echo "  已添加: $cfg"
+            fi
+          }
+          config_defined() {
+            local name="${1#CONFIG_}"
+            grep -RqsE --include='Kconfig*' "^[[:space:]]*(menuconfig|config)[[:space:]]+${name}$" .
+          }
+          enable_config_if_defined() {
+            local cfg="$1"
+            if config_defined "$cfg"; then
+              enable_config "$cfg"
+            else
+              echo "  当前内核未定义: $cfg，跳过"
+            fi
+          }
+          # 必要配置
+          enable_config CONFIG_SYSVIPC
+          enable_config CONFIG_POSIX_MQUEUE
+          enable_config CONFIG_IPC_NS
+          enable_config CONFIG_PID_NS
+          enable_config CONFIG_DEVTMPFS
+          echo "Droidspaces 集成完成"
 
       - name: 启用内核级基带保护
         if: inputs.baseband_guard
@@ -907,6 +989,8 @@ jobs:
           - Unicode Bypass Fix：${{ github.event.inputs.unicode_bypass_fix_enable }}
           - 三星SSG IO调度器支持：${{ github.event.inputs.ssg_enable }}
           - Re-Kernel支持：${{ github.event.inputs.rekernel_enable }}
+          - NTsync支持：${{ github.event.inputs.ntsync_enable }}
+          - DroidSpace支持：${{ github.event.inputs.droidspace_enable }}
           - 内核级基带保护支持：${{ github.event.inputs.baseband_guard }}
           - ReSukiSU管理器下载：[ReSukiSU_CI](https://github.com/cctv18/ReSukiSU_CI/releases)
           - SukiSU Ultra管理器下载：[SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases)
