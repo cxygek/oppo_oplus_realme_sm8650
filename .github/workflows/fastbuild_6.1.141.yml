@@ -621,11 +621,10 @@ jobs:
           echo "正在启用NTsync支持…"
           cd kernel_workspace
           echo "克隆 NTsync 补丁仓库…"
-          git clone --depth 1 https://github.com/Goldzxcbug/Droidspaces_Kernel_patch.git /tmp/Droidspaces_Kernel_patch
-          echo "NTSYNC_PATCHES=/tmp/Droidspaces_Kernel_patch/NTsync" >> $GITHUB_ENV
+          git clone --depth 1 https://github.com/Goldzxcbug/Droidspaces_Kernel_patch.git ./common/NTsync_patch
           echo "正在集成 NTsync 支持…"
-          PATCH_FILE1="$NTSYNC_PATCHES/ntsync_base.patch"
-          PATCH_FILE2="$NTSYNC_PATCHES/ntsync_compat_android14-6.1.patch"
+          PATCH_FILE1="./common/NTsync_patch/ntsync_base.patch"
+          PATCH_FILE2="./common/NTsync_patch/ntsync_compat_android14-6.1.patch"
           if ! patch -p1 --forward < "$PATCH_FILE1"; then
             echo "NTsync base补丁应用失败，可能已应用或上下文不匹配"
           fi
@@ -642,12 +641,11 @@ jobs:
           echo "正在启用DroidSpace支持…"
           cd kernel_workspace
           echo "正在下载DroidSpace补丁…"
-          git clone --depth 1 https://github.com/ravindu644/Droidspaces-OSS.git /tmp/Droidspaces-OSS
-          echo "DROIDSPACES_PATCHES=/tmp/Droidspaces-OSS/Documentation/resources/kernel-patches/GKI" >> $GITHUB_ENV
+          git clone --depth 1 https://github.com/ravindu644/Droidspaces-OSS.git ./common/DroidSpace_patch
           echo "正在应用DroidSpace补丁…"
           # 678 -> 6_7_8, 123 -> 1_2_3, 345 -> 3_4_5
           SLOT_NAME=$(echo "$SLOT" | sed 's/\(.\)/\1_/g; s/_$//')
-          PATCH_FILE="$DROIDSPACES_PATCHES/below-kernel-6.12/001.GKI-below-6.12-fix_sysvipc_kabi_${SLOT_NAME}.patch"
+          PATCH_FILE="./common/DroidSpace_patch/below-kernel-6.12/001.GKI-below-6.12-fix_sysvipc_kabi_${SLOT_NAME}.patch"
           if ! patch -p1 --forward < "$PATCH_FILE"; then
             echo "::warning::SYSVIPC kABI 补丁应用失败，可能已应用或上下文不匹配"
           fi
