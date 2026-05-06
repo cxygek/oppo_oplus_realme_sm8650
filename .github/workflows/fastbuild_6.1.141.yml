@@ -59,10 +59,10 @@ on:
           - 'true'
           - 'default'
       zram_writeback_enable:
-        description: '是否启用 zram writeback 支持(默认开启)'
+        description: '是否启用 zram writeback 支持'
         required: true
         type: boolean
-        default: 'true'
+        default: 'false'
       lazy_rcu_enable:
         description: '是否启用 Lazy RCU'
         required: true
@@ -618,66 +618,43 @@ jobs:
       - name: 启用NTsync支持
         if: inputs.ntsync_enable
         run: |
-          echo "正在启用NTsync支持…"
-          cd kernel_workspace
-          echo "克隆 NTsync 补丁仓库…"
-          git clone --depth 1 https://github.com/Goldzxcbug/Droidspaces_Kernel_patch.git ./common/NTsync_patch
+          cd kernel_workspace/common
+          echo "正在下载NTsync补丁…"
+          wget "https://raw.githubusercontent.com/Goldzxcbug/Droidspaces_Kernel_patch/refs/heads/main/NTsync/ntsync_base.patch"
+          wget "https://raw.githubusercontent.com/Goldzxcbug/Droidspaces_Kernel_patch/refs/heads/main/NTsync/ntsync_compat_android14-6.1.patch"
           echo "正在集成 NTsync 支持…"
-          if ! patch -p1 --forward < ./common/NTsync_patch/ntsync_base.patch; then
-            echo "NTsync base补丁应用失败，可能已应用或上下文不匹配"
+          if ! patch -p1 --forward < ntsync_base.patch; then
+            echo "::warning::NTsync base补丁应用失败，可能已应用或上下文不匹配"
           fi
-          if ! patch -p1 --forward < ./common/NTsync_patch/ntsync_compat_android14-6.1.patch; then
-            echo "NTsync 兼容补丁应用失败，可能已应用或上下文不匹配"
+          if ! patch -p1 --forward < ntsync_compat_android14-6.1.patch; then
+            echo "::warning::NTsync 兼容补丁应用失败，可能已应用或上下文不匹配"
           fi
           echo "添加 NTsync 内核配置..."
+          cd ../
+          #开启NTsync内核配置
           echo "CONFIG_NTSYNC=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "NTsync 集成完成"
 
       - name: 启用DroidSpace支持
         if: inputs.droidspace_enable
         run: |
-          echo "正在启用DroidSpace支持…"
-          cd kernel_workspace
+          cd kernel_workspace/common
           echo "正在下载DroidSpace补丁…"
-          git clone --depth 1 https://github.com/ravindu644/Droidspaces-OSS.git ./common/DroidSpace_patch
+          wget "https://github.com/Goldzxcbug/Droidspaces_Kernel_patch/raw/refs/heads/main/OKI/6.1/04.sysvipc_task_struct.patch"
           echo "正在应用DroidSpace补丁…"
-          # 678 -> 6_7_8, 123 -> 1_2_3, 345 -> 3_4_5
-          SLOT_NAME=$(echo "$SLOT" | sed 's/\(.\)/\1_/g; s/_$//')
-          if ! patch -p1 --forward < ./common/DroidSpace_patch/below-kernel-6.12/001.GKI-below-6.12-fix_sysvipc_kabi_${SLOT_NAME}.patch; then
+          if ! patch -p1 --forward < 04.sysvipc_task_struct.patch; then
             echo "::warning::SYSVIPC kABI 补丁应用失败，可能已应用或上下文不匹配"
           fi
           echo "添加 Droidspaces 内核配置..."
-          # 按文档规则逐个处理: 已启用则跳过, "# not set" 则替换, 不存在则追加
-          enable_config() {
-            local cfg="$1"
-            if grep -q "^${cfg}=y" ./common/arch/arm64/configs/gki_defconfig; then
-              echo "  已启用: $cfg"
-            elif grep -q "^# ${cfg} is not set" ./common/arch/arm64/configs/gki_defconfig; then
-              sed -i "s/^# ${cfg} is not set$/${cfg}=y/" ./common/arch/arm64/configs/gki_defconfig
-              echo "  已切换: $cfg"
-            else
-              echo "${cfg}=y" >> ./common/arch/arm64/configs/gki_defconfig
-              echo "  已添加: $cfg"
-            fi
-          }
-          config_defined() {
-            local name="${1#CONFIG_}"
-            grep -RqsE --include='Kconfig*' "^[[:space:]]*(menuconfig|config)[[:space:]]+${name}$" .
-          }
-          enable_config_if_defined() {
-            local cfg="$1"
-            if config_defined "$cfg"; then
-              enable_config "$cfg"
-            else
-              echo "  当前内核未定义: $cfg，跳过"
-            fi
-          }
-          # 必要配置
-          enable_config CONFIG_SYSVIPC
-          enable_config CONFIG_POSIX_MQUEUE
-          enable_config CONFIG_IPC_NS
-          enable_config CONFIG_PID_NS
-          enable_config CONFIG_DEVTMPFS
+          cd ../
+          # 修复 [✗] PID namespace 和 [✗] IPC namespace
+          echo "CONFIG_SYSVIPC=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_POSIX_MQUEUE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NAMESPACES=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_PID_NS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IPC_NS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          # 修复 [✗] devtmpfs support
+          echo "CONFIG_DEVTMPFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "Droidspaces 集成完成"
 
       - name: 启用内核级基带保护
