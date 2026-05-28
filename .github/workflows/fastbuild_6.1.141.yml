@@ -5,11 +5,11 @@ env:
   ANDROID_VERSION: 'android14'
   KERNEL_VERSION: '6.1'
   SUB_VERSION: '141'
-  KERNEL_NAME: 'android14-11-o-gfe1742ea9443'
+  KERNEL_NAME: 'android14-11-o-ge9a81736fafc'
   CCACHE_KEY: ccache-ecsv3-6.1.141
   KBUILD_BUILD_USER: "build-user"
   KBUILD_BUILD_HOST: "build-host"
-  KBUILD_BUILD_TIMESTAMP: "Thu Apr 2 07:45:42 UTC 2026"
+  KBUILD_BUILD_TIMESTAMP: "Tue Mar 17 04:10:34 UTC 2026"
 
 on:
   workflow_dispatch:
