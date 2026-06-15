@@ -5,11 +5,10 @@ env:
   ANDROID_VERSION: 'android14'
   KERNEL_VERSION: '6.1'
   SUB_VERSION: '141'
-  KERNEL_NAME: 'android14-11-o-ge9a81736fafc'
+  KERNEL_NAME: 'android14-11-o-gca13bffobf09'
   CCACHE_KEY: ccache-ecsv3-6.1.141
   KBUILD_BUILD_USER: "build-user"
   KBUILD_BUILD_HOST: "build-host"
-  KBUILD_BUILD_TIMESTAMP: "Tue Mar 17 04:10:34 UTC 2026"
 
 on:
   workflow_dispatch:
@@ -109,7 +108,12 @@ on:
         type: boolean
         default: 'false'
       kernel_suffix:
-        description: '内核后缀(留空默认,开头别加连字符,勿加空格等影响指令运行的保留字符)'
+        description: '内核后缀(留空默认，默认为android14-11-o-gca13bffobf09)'
+        required: false
+        type: string
+        default: ''
+      custom_build_timestamp:
+        description: '自定义时间戳 KBUILD_BUILD_TIMESTAMP (留空则使用编译时间)'
         required: false
         type: string
         default: ''
@@ -124,6 +128,13 @@ jobs:
       actions: write
       contents: read
     steps:
+      - name: 动态初始化编译环境变量
+        # 本步骤动态判断用户是否输入了新值。如果有输入，则覆盖覆盖原有的全局 env 并写入之后所有步骤可见的 $GITHUB_ENV
+        run: |
+          if [[ -n "${{ github.event.inputs.custom_build_timestamp }}" ]]; then
+            echo "KBUILD_BUILD_TIMESTAMP=${{ github.event.inputs.custom_build_timestamp }}" >> $GITHUB_ENV
+          fi      
+
       - name: 安装环境依赖+初始化源码仓库及llvm-Clang20工具链
         run: |
           rm -rf kernel_workspace
