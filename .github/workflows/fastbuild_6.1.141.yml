@@ -6,7 +6,7 @@ env:
   KERNEL_VERSION: '6.1'
   SUB_VERSION: '141'
   KERNEL_NAME: 'android14-11-o-gca13bffobf09'
-  CCACHE_KEY: ccache-ecsv3-6.1.141
+  CCACHE_KEY: ccache-ecsv4-6.1.141
   KBUILD_BUILD_USER: "build-user"
   KBUILD_BUILD_HOST: "build-host"
 
@@ -415,6 +415,10 @@ jobs:
           sed -i 's/check_defconfig//' ./common/build.config.gki
           #跳过将uapi标准头安装到 usr/include 目录的不必要操作，节省编译时间
           echo "CONFIG_HEADERS_INSTALL=n" >> ./common/arch/arm64/configs/gki_defconfig
+          # 应用 CVE_2026_43499 修复补丁
+          cd common
+          wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/other_patch/cve-2026-43499-rtmutex-6.1.patch
+          patch -p1 -F 3 < cve-2026-43499-rtmutex-6.1.patch
       
       - name: 启用 Lazy RCU 配置
         run: |
@@ -539,6 +543,7 @@ jobs:
             # 开启 Droidspaces 容器所需内核支持
             echo "CONFIG_PID_NS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_IPC_NS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_USER_NS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_SYSVIPC=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_DEVTMPFS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_NAMESPACES=y" >> ./arch/arm64/configs/gki_defconfig
@@ -556,8 +561,6 @@ jobs:
             echo "CONFIG_NTSYNC=y" >> ./arch/arm64/configs/gki_defconfig
             if [[ "${{ github.event.inputs.droidspaces_enable }}" == "extend" ]]; then
               echo "正在启用容器环境扩展支持..."
-              # 开启USER_NS支持
-              echo "CONFIG_USER_NS=y" >> ./arch/arm64/configs/gki_defconfig
               # 开启虚拟 HCI 设备支持
               echo "CONFIG_BT_HCIVHCI=y" >> ./arch/arm64/configs/gki_defconfig
               # 开启 systemd-coredump 支持
