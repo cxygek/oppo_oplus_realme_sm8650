@@ -119,6 +119,7 @@ jobs:
     outputs:
       ksuver: ${{ steps.ksu_version.outputs.ksuver }}
       ak3name: ${{ steps.create_zip.outputs.ak3name }}
+      full_version: ${{ steps.set_version.outputs.full_version }}
     permissions:
       actions: write
       contents: read
@@ -626,7 +627,14 @@ jobs:
               sed -i "\$s|echo \"\\\$res\"|echo \"-${{ env.KERNEL_NAME }}\"|" "$f"
             done
           fi
-           
+
+      - name: 设定内核完整名称
+        id: set_version
+        run: |
+          FULL_VERSION=${{ env.KERNEL_VERSION }}.${{ env.SUB_VERSION }}-${{ env.KERNEL_NAME }}
+          echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_ENV          
+          echo "full_version=$FULL_VERSION" >> $GITHUB_OUTPUT
+
       - name: 构建内核
         run: |
           WORKDIR="$(pwd)"
@@ -775,20 +783,12 @@ jobs:
           if [[ ${{ github.event.inputs.kpm_enable }} == 'true' ]]; then
             wget https://github.com/cctv18/KPatch-Next/releases/latest/download/kpn.zip
           fi
-          if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
-            AK3_NAME=AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}_${{ github.event.inputs.kernel_suffix }}.zip
-          else
-            AK3_NAME=AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}_${{ env.KERNEL_NAME }}.zip
-          fi
+          AK3_NAME=AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}_${{ env.KERNEL_NAME }}.zip
           zip -r ../$AK3_NAME ./*
           echo "ak3name=$AK3_NAME" >> $GITHUB_OUTPUT
           
           #为AK3添加注释（调试信息）
-          if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
-            FULL_VERSION=${{ env.KERNEL_VERSION }}.${{ env.SUB_VERSION }}-${{ github.event.inputs.kernel_suffix }}
-          else
-            FULL_VERSION=${{ env.KERNEL_VERSION }}.${{ env.SUB_VERSION }}-${{ env.KERNEL_NAME }}
-          fi
+          FULL_VERSION=$FULL_VERSION
           TIME_NOW="$(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')"
           echo "Author: $GITHUB_ACTOR" > ./ak3.log
           echo "Repo: $GITHUB_REPOSITORY" >> ./ak3.log
@@ -846,15 +846,7 @@ jobs:
 
       - name: 设置环境变量
         run: |
-          if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
-            FULL_VERSION=${{ env.KERNEL_VERSION }}.${{ env.SUB_VERSION }}-${{ github.event.inputs.kernel_suffix }}
-            echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_ENV
-            export FULL_VERSION=$FULL_VERSION
-          else
-            FULL_VERSION=${{ env.KERNEL_VERSION }}.${{ env.SUB_VERSION }}-${{ env.KERNEL_NAME }}
-            echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_ENV
-            export FULL_VERSION=$FULL_VERSION
-          fi
+          echo "FULL_VERSION=${{ needs.build.outputs.full_version }}" >> $GITHUB_ENV
           TIME="$(TZ='Asia/Shanghai' date +'%y%m%d%H%M%S')"
           TIME_FORM="$(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')"
           echo "TIME=$TIME" >> $GITHUB_ENV
